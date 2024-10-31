@@ -38,7 +38,7 @@ fn parse_question(input: &mut &str) -> PResult<Question> {
     let answers = alt((
         parse_multis.map(Answers::Multi),
         parse_choices.map(Answers::Choice),
-        parse_text.map(Answers::Text),
+        parse_texts.map(Answers::Text),
     ))
     .parse_next(input)?;
 
@@ -79,6 +79,10 @@ fn parse_choice(input: &mut &str) -> PResult<(String, bool)> {
     let answer = parse_option.parse_next(input)?;
 
     Ok((answer, correct))
+}
+
+fn parse_texts(input: &mut &str) -> PResult<Vec<String>> {
+    repeat(1.., parse_text).parse_next(input)
 }
 
 fn parse_text(input: &mut &str) -> PResult<String> {

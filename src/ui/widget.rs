@@ -12,6 +12,94 @@ use crate::types::*;
 use super::input::Input;
 use super::utils::center_rect;
 
+pub struct QuestionaireWidget<'a> {
+    pub marker: PhantomData<&'a Questionaire>,
+}
+
+impl<'a> QuestionaireWidget<'a> {
+    pub fn new() -> Self {
+        Self {
+            marker: PhantomData,
+        }
+    }
+}
+
+pub struct QuestionaireWidgetState<'a> {
+    pub questionaire: &'a Questionaire,
+    pub question_state: Option<QuestionWidgetState<'a>>,
+    pub pos: usize,
+    pub score: f32,
+    pub highlight: bool,
+}
+
+impl<'a> StatefulWidget for QuestionaireWidget<'a> {
+    type State = QuestionaireWidgetState<'a>;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        if let Some(ref mut question_state) = state.question_state {
+            let question = QuestionWidget::new();
+            question.render(area, buf, question_state);
+        } else {
+            Paragraph::new(format!("Finished! Your score is {}", state.score))
+                .centered()
+                .render(area, buf);
+        }
+    }
+}
+
+impl<'a> QuestionaireWidgetState<'a> {
+    pub fn new(questionaire: &'a Questionaire) -> Self {
+        let question_state = if let Some(question) = questionaire.questions.first() {
+            Some(QuestionWidgetState::new(question))
+        } else {
+            None
+        };
+
+        Self {
+            question_state,
+            questionaire,
+            pos: 0,
+            score: 0.0,
+            highlight: false,
+        }
+    }
+
+    pub fn update(&mut self, input: Input) {
+        match input {
+            Input::Enter => {
+                if !self.highlight {
+                    self.highlight = true;
+
+                    if let Some(ref mut state) = self.question_state {
+                        state.update(Input::Enter);
+                    }
+                } else {
+                    if self.pos < self.questionaire.questions.len() {
+                        if let Some(ref state) = self.question_state {
+                            self.score += state.score();
+                        }
+
+                        self.pos += 1;
+                        self.highlight = false;
+                    }
+
+                    self.question_state = self
+                        .questionaire
+                        .questions
+                        .get(self.pos)
+                        .map(QuestionWidgetState::new);
+                }
+            }
+
+            other => {
+                if let Some(ref mut state) = self.question_state {
+                    state.update(other);
+                }
+            }
+        }
+    }
+}
+
 pub struct QuestionWidget<'a> {
     pub marker: PhantomData<&'a Question>,
 }
@@ -38,6 +126,34 @@ impl<'a> QuestionWidgetState<'a> {
             picked: Vec::new(),
             text: String::new(),
             highlight_correct: false,
+        }
+    }
+
+    pub fn score(&self) -> f32 {
+        match &self.question.answers {
+            Answers::Text(answers) => {
+                if answers
+                    .iter()
+                    .any(|answer| answer.to_lowercase() == self.text.to_lowercase())
+                {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+
+            Answers::Choice((_, correct)) => {
+                if self.picked.contains(&correct) {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+
+            Answers::Multi(answers) => {
+                self.picked.iter().filter(|&&pick| answers[pick].1).count() as f32
+                    / answers.len() as f32
+            }
         }
     }
 
@@ -110,7 +226,7 @@ impl<'a> StatefulWidget for QuestionWidget<'a> {
             }
         };
 
-        let area = center_rect(area.width / 3, area.height / 2, area);
+        let area = center_rect(area.width / 3, area.height * 2 / 3, area);
 
         let question_block = Block::new()
             .borders(Borders::all())
@@ -121,7 +237,17 @@ impl<'a> StatefulWidget for QuestionWidget<'a> {
 
         match &state.question.answers {
             Answers::Text(answer) => {
-                let color = answer_color(true, *answer == state.text, state.highlight_correct);
+                let color = if !state.highlight_correct {
+                    Color::Black
+                } else if state.highlight_correct
+                    && answer
+                        .iter()
+                        .any(|answer| answer.to_lowercase() == state.text.to_lowercase())
+                {
+                    Color::Green
+                } else {
+                    Color::Red
+                };
 
                 let style = Style {
                     bg: Some(color),

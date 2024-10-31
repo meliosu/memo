@@ -5,7 +5,7 @@ use memo::{
     ui::{
         self,
         input::Input,
-        widget::{QuestionWidget, QuestionWidgetState},
+        widget::{QuestionaireWidget, QuestionaireWidgetState},
     },
 };
 use ratatui::widgets::StatefulWidget;
@@ -24,11 +24,11 @@ fn main() -> io::Result<()> {
 
     let mut term = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
-    let mut state = QuestionWidgetState::new(&questionaire.questions[1]);
+    let mut state = QuestionaireWidgetState::new(&questionaire);
 
     loop {
         term.draw(|frame| {
-            QuestionWidget::new().render(frame.area(), frame.buffer_mut(), &mut state);
+            QuestionaireWidget::new().render(frame.area(), frame.buffer_mut(), &mut state);
         })?;
 
         let input = ui::input::read()?;

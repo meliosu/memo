@@ -11,7 +11,7 @@ pub struct Question {
 
 #[derive(Debug)]
 pub enum Answers {
-    Text(String),
+    Text(Vec<String>),
     Choice((Vec<String>, usize)),
     Multi(Vec<(String, bool)>),
 }
